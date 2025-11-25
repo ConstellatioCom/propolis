@@ -55,7 +55,8 @@
             stroke-width: 2px;
         }
         .central-node circle {
-            stroke: #A0522D;
+            /* Bordure pourpre pour le nœud principal */
+            stroke: #9A9AA2; 
             stroke-width: 4px !important;
         }
     </style>
@@ -69,17 +70,17 @@
         // --- Données pour le graphe en étoile PROPOLIS ---
         const nodesData = [
             { id: 'PROPOLIS', category: 'Centre', type: 'central' },
-            // 1. Marque (Bleu)
+            // 1. Marque (Section 1)
             { id: 'propolis ingénierie', category: 'Marque', type: 'keyword' },
             { id: 'propolis engineering', category: 'Marque', type: 'keyword' },
             { id: 'cabinet propolis', category: 'Marque', type: 'keyword' },
             { id: 'propolis nanterre', category: 'Marque', type: 'keyword' },
-            // 2. Expertise Spécifique (Vert)
+            // 2. Expertise Spécifique (Section 2)
             { id: 'propolis sûreté', category: 'Expertise Spécifique', type: 'keyword' },
             { id: 'propolis sécurité', category: 'Expertise Spécifique', type: 'keyword' },
             { id: 'propolis ingénierie sûreté', category: 'Expertise Spécifique', type: 'keyword' },
             { id: 'propolis audit sécurité', category: 'Expertise Spécifique', type: 'keyword' },
-            // 3. Transactionnel (Orange)
+            // 3. Transactionnel (Section 3)
             { id: 'propolis contact', category: 'Transactionnel', type: 'keyword' },
             { id: 'propolis téléphone', category: 'Transactionnel', type: 'keyword' },
             { id: 'propolis adresse', category: 'Transactionnel', type: 'keyword' },
@@ -92,9 +93,10 @@
             target: d.id,
         }));
 
+        // --- Couleurs mises à jour ---
         const colorScale = d3.scaleOrdinal()
             .domain(['Centre', 'Marque', 'Expertise Spécifique', 'Transactionnel'])
-            .range(['#A0522D', '#4285F4', '#34A853', '#FBBC04']);
+            .range(['#13336D', '#F8AA3D', '#6CA5DA', '#3E6CA4']);
 
         const tooltip = d3.select("#tooltip");
 
@@ -108,33 +110,40 @@
 
             // Mapping des catégories vers des positions de groupement (clusters)
             const getGroupPosition = (category) => {
-                // Augmentation de la marge pour agrandir le graphe
-                const margin = Math.min(width, height) / 3.5; 
+                // Augmentation significative de la distance pour le "grand cercle"
+                const radius = Math.min(width, height) / 2.5; 
                 const centerX = width / 2;
                 const centerY = height / 2;
                 
                 switch (category) {
-                    case 'Marque': return { x: centerX - margin * 1.5, y: centerY - margin * 0.8 }; // Position plus éloignée
-                    case 'Expertise Spécifique': return { x: centerX - margin * 0.5, y: centerY + margin * 1.5 }; // Position plus éloignée
-                    case 'Transactionnel': return { x: centerX + margin * 1.5, y: centerY - margin * 0.8 }; // Position plus éloignée
-                    case 'Centre': return { x: centerX, y: centerY };
-                    default: return { x: centerX, y: centerY };
+                    case 'Marque': 
+                        // Section 1: Jaune/Orange
+                        return { x: centerX + radius * Math.cos(-Math.PI / 4), y: centerY + radius * Math.sin(-Math.PI / 4) }; // Bas-Droit
+                    case 'Expertise Spécifique': 
+                        // Section 2: Bleu clair
+                        return { x: centerX + radius * Math.cos(Math.PI / 2), y: centerY + radius * Math.sin(Math.PI / 2) }; // Bas-Centre
+                    case 'Transactionnel': 
+                        // Section 3: Bleu foncé
+                        return { x: centerX + radius * Math.cos(5 * Math.PI / 6), y: centerY + radius * Math.sin(5 * Math.PI / 6) }; // Haut-Gauche
+                    case 'Centre': 
+                        return { x: centerX, y: centerY };
+                    default: 
+                        return { x: centerX, y: centerY };
                 }
             };
 
             // Simulation de force D3
             const simulation = d3.forceSimulation(nodesData)
-                // Augmentation de la distance de repos des liens
-                .force("link", d3.forceLink(linksData).id(d => d.id).distance(100).strength(0.8)) 
-                // Augmentation de la répulsion pour séparer les clusters
-                .force("charge", d3.forceManyBody().strength(-400)) 
+                // Distance des liens augmentée
+                .force("link", d3.forceLink(linksData).id(d => d.id).distance(180).strength(0.8)) 
+                // Répulsion très forte pour disperser les nœuds
+                .force("charge", d3.forceManyBody().strength(-1000)) 
                 .force("center", d3.forceCenter(width / 2, height / 2).strength(0.1))
 
-                // Force de groupement
+                // Force de groupement pour former des clusters dans le grand cercle
                 .force("x", d3.forceX(d => getGroupPosition(d.category).x).strength(d => d.type === 'central' ? 0.8 : 0.2))
                 .force("y", d3.forceY(d => getGroupPosition(d.category).y).strength(d => d.type === 'central' ? 0.8 : 0.2))
 
-                // Maintien de la taille des nœuds
                 .force("collide", d3.forceCollide().radius(d => (d.type === 'central' ? 35 : 20))); 
 
             const link = svg.append("g").selectAll("line")
@@ -148,14 +157,14 @@
                 .attr("class", d => `node ${d.type === 'central' ? 'central-node' : ''}`)
                 .call(drag(simulation));
 
-            // Cercles des nœuds (taille maintenue)
+            // Cercles des nœuds
             node.append("circle")
                 .attr("r", d => d.type === 'central' ? 30 : 18)
                 .attr("fill", d => colorScale(d.category))
                 .attr("stroke", "#fff")
                 .attr("stroke-width", 2);
 
-            // Texte des nœuds (taille maintenue)
+            // Texte des nœuds
             node.append("text")
                 .text(d => d.id)
                 .attr("x", d => d.type === 'central' ? 35 : 22)
