@@ -4,23 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Graphe de mots-clés PROPOLIS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
+        /* Styles pour un affichage plein écran du graphe */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Empêche les barres de défilement */
             background-color: #f3f4f6;
         }
-        .chart-container {
-            background-color: white;
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            transition: all 0.3s ease-in-out;
+
+        /* Conteneur et SVG prennent 100% de l'espace disponible */
+        #chart-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
         }
+        #star-graph {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Tooltip style */
         .tooltip {
             position: absolute;
             text-align: center;
@@ -34,45 +41,33 @@
             transition: opacity 0.2s;
             max-width: 300px;
         }
+        /* Styles des éléments du graphe */
         .node text {
             pointer-events: none;
-            font-size: 10px;
+            font-size: 11px; /* Légèrement plus grand */
             fill: #374151;
             font-weight: 500;
+            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7); /* Ombre pour la lisibilité */
         }
         .link {
             stroke: #9ca3af;
-            stroke-opacity: 0.8;
+            stroke-opacity: 0.6;
             stroke-width: 2px;
         }
-        /* Style spécifique pour le noeud central */
         .central-node circle {
-            stroke: #A0522D; /* Marron */
-            stroke-width: 3px !important;
+            stroke: #A0522D;
+            stroke-width: 4px !important; /* Mettre en évidence le centre */
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body>
 
-    <div class="max-w-7xl mx-auto">
-        <header class="text-center mb-10">
-            <h1 class="text-4xl md:text-5xl font-bold text-gray-800">Graphe de Mots-clés PROPOLIS (Star Graph)</h1>
-            <p class="text-gray-600 mt-2 text-lg">Visualisation pour la stratégie Google Ads de marque.</p>
-        </header>
-
-        <div class="chart-container">
-            <h3 class="text-xl font-bold text-gray-700 mb-4 text-center">Segmentation des prédicats autour du mot-clé central : PROPOLIS</h3>
-            <p class="text-center text-sm text-gray-500 mb-4">Passez la souris sur les nœuds pour voir la catégorie.</p>
-            <div id="chart-container" class="relative w-full h-[600px] border border-gray-200 rounded-lg"><svg id="star-graph" class="w-full h-full"></svg></div>
-        </div>
-    </div>
-
+    <div id="chart-container"><svg id="star-graph"></svg></div>
     <div id="tooltip" class="tooltip"></div>
 
     <script>
         // --- Données pour le graphe en étoile PROPOLIS ---
         const nodesData = [
-            // Nœud Central
             { id: 'PROPOLIS', category: 'Centre', type: 'central' },
             // 1. Marque (Bleu)
             { id: 'propolis ingénierie', category: 'Marque', type: 'keyword' },
@@ -98,10 +93,10 @@
             target: d.id,
         }));
 
-        // --- Couleurs pour les catégories (comme le Médicis, mais adapté) ---
+        // --- Couleurs pour les catégories (Marron, Bleu, Vert, Orange) ---
         const colorScale = d3.scaleOrdinal()
             .domain(['Centre', 'Marque', 'Expertise Spécifique', 'Transactionnel'])
-            .range(['#A0522D', '#4285F4', '#34A853', '#FBBC04']); // Marron, Bleu, Vert, Orange
+            .range(['#A0522D', '#4285F4', '#34A853', '#FBBC04']);
 
         // --- Tooltip ---
         const tooltip = d3.select("#tooltip");
@@ -110,16 +105,37 @@
         function renderStarGraph() {
             const svg = d3.select("#star-graph");
             const container = d3.select("#chart-container");
-            const width = parseInt(container.style("width"));
-            const height = parseInt(container.style("height"));
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            svg.attr("width", width).attr("height", height);
             svg.selectAll("*").remove();
+
+            // Mapping des catégories vers des positions de groupement (clusters)
+            const getGroupPosition = (category) => {
+                const margin = 150;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                
+                switch (category) {
+                    case 'Marque': return { x: centerX - margin, y: centerY - margin }; // Haut-Gauche
+                    case 'Expertise Spécifique': return { x: centerX - margin, y: centerY + margin }; // Bas-Gauche
+                    case 'Transactionnel': return { x: centerX + margin, y: centerY + margin }; // Bas-Droit
+                    case 'Centre': return { x: centerX, y: centerY };
+                    default: return { x: centerX, y: centerY };
+                }
+            };
 
             // Simulation de force D3
             const simulation = d3.forceSimulation(nodesData)
-                .force("link", d3.forceLink(linksData).id(d => d.id).distance(120).strength(0.6)) // Distance plus grande pour le star
-                .force("charge", d3.forceManyBody().strength(-150)) // Répulsion
-                .force("center", d3.forceCenter(width / 2, height / 2).strength(1))
-                .force("collide", d3.forceCollide().radius(d => (d.type === 'central' ? 30 : 18))); // Évite le chevauchement
+                .force("link", d3.forceLink(linksData).id(d => d.id).distance(50).strength(0.8)) // Liens plus forts
+                .force("charge", d3.forceManyBody().strength(-200)) // Répulsion pour éviter les chevauchements
+                .force("center", d3.forceCenter(width / 2, height / 2).strength(0.1)) // Force de centrage globale faible
+
+                // Force de groupement (clustering)
+                .force("x", d3.forceX(d => getGroupPosition(d.category).x).strength(d => d.type === 'central' ? 0.8 : 0.15))
+                .force("y", d3.forceY(d => getGroupPosition(d.category).y).strength(d => d.type === 'central' ? 0.8 : 0.15))
+
+                .force("collide", d3.forceCollide().radius(d => (d.type === 'central' ? 35 : 20))); // Évite le chevauchement
 
             // Dessin des liens
             const link = svg.append("g").selectAll("line")
@@ -132,11 +148,11 @@
                 .data(nodesData)
                 .join("g")
                 .attr("class", d => `node ${d.type === 'central' ? 'central-node' : ''}`)
-                .call(drag(simulation)); // Ajout de la fonction de drag
+                .call(drag(simulation));
 
             // Cercles des nœuds
             node.append("circle")
-                .attr("r", d => d.type === 'central' ? 25 : 15)
+                .attr("r", d => d.type === 'central' ? 30 : 18)
                 .attr("fill", d => colorScale(d.category))
                 .attr("stroke", "#fff")
                 .attr("stroke-width", 2);
@@ -144,14 +160,14 @@
             // Texte des nœuds
             node.append("text")
                 .text(d => d.id)
-                .attr("x", d => d.type === 'central' ? 30 : 18)
+                .attr("x", d => d.type === 'central' ? 35 : 22)
                 .attr("y", 5)
                 .attr("fill", "#374151")
-                .style("font-size", d => d.type === 'central' ? '12px' : '10px');
+                .style("font-size", d => d.type === 'central' ? '14px' : '11px');
 
             // Interactivité (Tooltip et agrandissement)
             node.on("mouseover", (event, d) => {
-                const radius = d.type === 'central' ? 30 : 20;
+                const radius = d.type === 'central' ? 35 : 22;
                 d3.select(event.currentTarget).select("circle").transition().duration(150).attr("r", radius);
                 tooltip.style("opacity", 1).html(`
                     <strong>${d.id}</strong><br>
@@ -164,7 +180,7 @@
                 tooltip.style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
             })
             .on("mouseout", (event, d) => {
-                const radius = d.type === 'central' ? 25 : 15;
+                const radius = d.type === 'central' ? 30 : 18;
                 d3.select(event.currentTarget).select("circle").transition().duration(150).attr("r", radius);
                 tooltip.style("opacity", 0);
             });
@@ -180,7 +196,7 @@
                 node.attr("transform", d => `translate(${d.x},${d.y})`);
             });
 
-            // Fonction de drag pour fixer les nœuds (dérivée de votre exemple)
+            // Fonction de drag pour fixer les nœuds
             function drag(simulation) {
                 function dragstarted(event, d) {
                     if (!event.active) simulation.alphaTarget(0.3).restart();
