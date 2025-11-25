@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graphe de mots-clés PROPOLIS</title>
+    <title>Graphe de mots-clés PROPOLIS Agrandie</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         /* Styles pour un affichage plein écran du graphe */
@@ -12,7 +12,7 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Empêche les barres de défilement */
+            overflow: hidden; 
             background-color: #f3f4f6;
         }
 
@@ -44,10 +44,10 @@
         /* Styles des éléments du graphe */
         .node text {
             pointer-events: none;
-            font-size: 11px; /* Légèrement plus grand */
+            font-size: 11px;
             fill: #374151;
             font-weight: 500;
-            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7); /* Ombre pour la lisibilité */
+            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7);
         }
         .link {
             stroke: #9ca3af;
@@ -56,7 +56,7 @@
         }
         .central-node circle {
             stroke: #A0522D;
-            stroke-width: 4px !important; /* Mettre en évidence le centre */
+            stroke-width: 4px !important;
         }
     </style>
 </head>
@@ -87,24 +87,20 @@
             { id: 'propolis recrutement', category: 'Transactionnel', type: 'keyword' },
         ];
 
-        // Tous les mots-clés sont liés au nœud central "PROPOLIS"
         const linksData = nodesData.filter(d => d.type === 'keyword').map(d => ({
             source: 'PROPOLIS',
             target: d.id,
         }));
 
-        // --- Couleurs pour les catégories (Marron, Bleu, Vert, Orange) ---
         const colorScale = d3.scaleOrdinal()
             .domain(['Centre', 'Marque', 'Expertise Spécifique', 'Transactionnel'])
             .range(['#A0522D', '#4285F4', '#34A853', '#FBBC04']);
 
-        // --- Tooltip ---
         const tooltip = d3.select("#tooltip");
 
         // --- Fonction de rendu du graphe ---
         function renderStarGraph() {
             const svg = d3.select("#star-graph");
-            const container = d3.select("#chart-container");
             const width = window.innerWidth;
             const height = window.innerHeight;
             svg.attr("width", width).attr("height", height);
@@ -112,14 +108,15 @@
 
             // Mapping des catégories vers des positions de groupement (clusters)
             const getGroupPosition = (category) => {
-                const margin = 150;
+                // Augmentation de la marge pour agrandir le graphe
+                const margin = Math.min(width, height) / 3.5; 
                 const centerX = width / 2;
                 const centerY = height / 2;
                 
                 switch (category) {
-                    case 'Marque': return { x: centerX - margin, y: centerY - margin }; // Haut-Gauche
-                    case 'Expertise Spécifique': return { x: centerX - margin, y: centerY + margin }; // Bas-Gauche
-                    case 'Transactionnel': return { x: centerX + margin, y: centerY + margin }; // Bas-Droit
+                    case 'Marque': return { x: centerX - margin * 1.5, y: centerY - margin * 0.8 }; // Position plus éloignée
+                    case 'Expertise Spécifique': return { x: centerX - margin * 0.5, y: centerY + margin * 1.5 }; // Position plus éloignée
+                    case 'Transactionnel': return { x: centerX + margin * 1.5, y: centerY - margin * 0.8 }; // Position plus éloignée
                     case 'Centre': return { x: centerX, y: centerY };
                     default: return { x: centerX, y: centerY };
                 }
@@ -127,37 +124,38 @@
 
             // Simulation de force D3
             const simulation = d3.forceSimulation(nodesData)
-                .force("link", d3.forceLink(linksData).id(d => d.id).distance(50).strength(0.8)) // Liens plus forts
-                .force("charge", d3.forceManyBody().strength(-200)) // Répulsion pour éviter les chevauchements
-                .force("center", d3.forceCenter(width / 2, height / 2).strength(0.1)) // Force de centrage globale faible
+                // Augmentation de la distance de repos des liens
+                .force("link", d3.forceLink(linksData).id(d => d.id).distance(100).strength(0.8)) 
+                // Augmentation de la répulsion pour séparer les clusters
+                .force("charge", d3.forceManyBody().strength(-400)) 
+                .force("center", d3.forceCenter(width / 2, height / 2).strength(0.1))
 
-                // Force de groupement (clustering)
-                .force("x", d3.forceX(d => getGroupPosition(d.category).x).strength(d => d.type === 'central' ? 0.8 : 0.15))
-                .force("y", d3.forceY(d => getGroupPosition(d.category).y).strength(d => d.type === 'central' ? 0.8 : 0.15))
+                // Force de groupement
+                .force("x", d3.forceX(d => getGroupPosition(d.category).x).strength(d => d.type === 'central' ? 0.8 : 0.2))
+                .force("y", d3.forceY(d => getGroupPosition(d.category).y).strength(d => d.type === 'central' ? 0.8 : 0.2))
 
-                .force("collide", d3.forceCollide().radius(d => (d.type === 'central' ? 35 : 20))); // Évite le chevauchement
+                // Maintien de la taille des nœuds
+                .force("collide", d3.forceCollide().radius(d => (d.type === 'central' ? 35 : 20))); 
 
-            // Dessin des liens
             const link = svg.append("g").selectAll("line")
                 .data(linksData)
                 .join("line")
                 .attr("class", "link");
 
-            // Dessin des nœuds (groupes pour cercle + texte)
             const node = svg.append("g").selectAll("g")
                 .data(nodesData)
                 .join("g")
                 .attr("class", d => `node ${d.type === 'central' ? 'central-node' : ''}`)
                 .call(drag(simulation));
 
-            // Cercles des nœuds
+            // Cercles des nœuds (taille maintenue)
             node.append("circle")
                 .attr("r", d => d.type === 'central' ? 30 : 18)
                 .attr("fill", d => colorScale(d.category))
                 .attr("stroke", "#fff")
                 .attr("stroke-width", 2);
 
-            // Texte des nœuds
+            // Texte des nœuds (taille maintenue)
             node.append("text")
                 .text(d => d.id)
                 .attr("x", d => d.type === 'central' ? 35 : 22)
@@ -165,7 +163,7 @@
                 .attr("fill", "#374151")
                 .style("font-size", d => d.type === 'central' ? '14px' : '11px');
 
-            // Interactivité (Tooltip et agrandissement)
+            // Interactivité (Tooltip)
             node.on("mouseover", (event, d) => {
                 const radius = d.type === 'central' ? 35 : 22;
                 d3.select(event.currentTarget).select("circle").transition().duration(150).attr("r", radius);
@@ -185,7 +183,7 @@
                 tooltip.style("opacity", 0);
             });
 
-            // Mise à jour de la position à chaque "tick" de la simulation
+            // Mise à jour de la position à chaque "tick"
             simulation.on("tick", () => {
                 link
                     .attr("x1", d => d.source.x)
